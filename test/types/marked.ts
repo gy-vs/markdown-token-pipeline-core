@@ -318,8 +318,34 @@ marked.use({
     preprocess(markdown) {
       return markdown;
     },
+    processAllTokens(tokens) {
+      return tokens;
+    },
     postprocess(html) {
       return html;
+    }
+  }
+});
+
+marked.use({
+  hooks: {
+    async preprocess(markdown) {
+      return markdown;
+    },
+    async processAllTokens(tokens) {
+      return tokens;
+    },
+    async postprocess(html) {
+      return html;
+    }
+  }
+});
+
+marked.use({
+  hooks: {
+    processAllTokens(tokens) {
+      // only a subset of hooks needs to be provided
+      return tokens.filter(token => token.type !== 'hr');
     }
   }
 });

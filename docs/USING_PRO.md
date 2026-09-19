@@ -262,9 +262,10 @@ Hooks are methods that hook into some part of marked. The following hooks are av
 | signature | description |
 |-----------|-------------|
 | `preprocess(markdown: string): string` | Process markdown before sending it to marked. |
+| `processAllTokens(tokens: Token[]): Token[]` | Process the full array of tokens after lexing and before `walkTokens` and the parser run. Must return the array of tokens to parse. |
 | `postprocess(html: string): string` | Process html after marked has finished parsing. |
 
-`marked.use()` can be called multiple times with different `hooks` functions. Each function will be called in order, starting with the function that was assigned *last*.
+`marked.use()` can be called multiple times with different `hooks` functions. Each function will be called in order, starting with the function that was assigned *last*. For `preprocess`, `processAllTokens`, and `postprocess` the return value of one hook is passed as the argument to the previously assigned hook. A `processAllTokens` hook must return an array of tokens. When the [`async`](#/using_advanced#options) option is `true` these hooks may return a promise.
 
 **Example:** Set options based on [front-matter](https://www.npmjs.com/package/front-matter)
 
@@ -325,6 +326,52 @@ console.log(marked.parse(`
 
 ```html
 <img src="x">
+```
+
+**Example:** Transform the complete token list after lexing
+
+`processAllTokens` receives the entire array of tokens after the lexer finishes and before `walkTokens` and the parser run. It must return the array of tokens that should be parsed. This makes cross-token transformations possible, such as adding, removing, or replacing tokens:
+
+```js
+import { marked } from 'marked';
+
+// Override function
+function processAllTokens(tokens) {
+  // remove every horizontal rule
+  tokens = tokens.filter(token => token.type !== 'hr');
+
+  // prepend a heading token
+  tokens.unshift({
+    type: 'heading',
+    raw: '# Added heading\n',
+    depth: 1,
+    text: 'Added heading',
+    tokens: [
+      { type: 'text', raw: 'Added heading', text: 'Added heading' }
+    ]
+  });
+
+  return tokens;
+}
+
+marked.use({ hooks: { processAllTokens } });
+
+// Run marked
+console.log(marked.parse(`
+*text*
+
+---
+
+more text
+`.trim()));
+```
+
+**Output:**
+
+```html
+<h1>Added heading</h1>
+<p><em>text</em></p>
+<p>more text</p>
 ```
 
 ***

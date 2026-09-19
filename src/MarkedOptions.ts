@@ -3,6 +3,7 @@ import type { _Parser } from './Parser.ts';
 import type { _Lexer } from './Lexer.ts';
 import type { _Renderer } from './Renderer.ts';
 import type { _Tokenizer } from './Tokenizer.ts';
+import type { _Hooks } from './Hooks.ts';
 
 export interface TokenizerThis {
   lexer: _Lexer;
@@ -69,11 +70,13 @@ export interface MarkedExtension {
   /**
    * Hooks are methods that hook into some part of marked.
    * preprocess is called to process markdown before sending it to marked.
+   * processAllTokens is called with the tokens after lexing and before walkTokens and the parser run.
    * postprocess is called to process html after marked has finished parsing.
    */
   hooks?: {
-    preprocess: (markdown: string) => string | Promise<string>,
-    postprocess: (html: string) => string | Promise<string>,
+    preprocess?: (markdown: string) => string | Promise<string>,
+    postprocess?: (html: string) => string | Promise<string>,
+    processAllTokens?: (tokens: Token[]) => Token[] | Promise<Token[]>,
     // eslint-disable-next-line no-use-before-define
     options?: MarkedOptions
   } | null;
@@ -109,7 +112,7 @@ export interface MarkedExtension {
   walkTokens?: ((token: Token) => void | Promise<void>) | undefined | null;
 }
 
-export interface MarkedOptions extends Omit<MarkedExtension, 'renderer' | 'tokenizer' | 'extensions' | 'walkTokens'> {
+export interface MarkedOptions extends Omit<MarkedExtension, 'renderer' | 'tokenizer' | 'extensions' | 'walkTokens' | 'hooks'> {
   /**
    * Type: object Default: new Renderer()
    *
@@ -121,6 +124,11 @@ export interface MarkedOptions extends Omit<MarkedExtension, 'renderer' | 'token
    * The tokenizer defines how to turn markdown text into tokens.
    */
   tokenizer?: _Tokenizer | undefined | null;
+
+  /**
+   * The hooks object runs at various points during parsing.
+   */
+  hooks?: _Hooks | undefined | null;
 
   /**
    * Custom extensions

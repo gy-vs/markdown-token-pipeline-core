@@ -204,24 +204,33 @@ export class Marked {
           const hooksFunc = pack.hooks[hooksProp] as UnknownFunction;
           const prevHook = hooks[hooksProp] as UnknownFunction;
           if (_Hooks.passThroughHooks.has(prop)) {
-            hooks[hooksProp] = (arg: string | undefined) => {
+            const passThroughHook = (arg: unknown) => {
               if (this.defaults.async) {
                 return Promise.resolve(hooksFunc.call(hooks, arg)).then(ret => {
-                  return prevHook.call(hooks, ret) as string;
+                  if (prop === 'processAllTokens' && !Array.isArray(ret)) {
+                    throw new Error('processAllTokens hooks must return an array of tokens');
+                  }
+                  return prevHook.call(hooks, ret);
                 });
               }
 
               const ret = hooksFunc.call(hooks, arg);
-              return prevHook.call(hooks, ret) as string;
+              if (prop === 'processAllTokens' && !Array.isArray(ret)) {
+                throw new Error('processAllTokens hooks must return an array of tokens');
+              }
+              return prevHook.call(hooks, ret);
             };
+            // the hook property is a union of different method types, so the generic wrapper is cast to any
+            hooks[hooksProp] = passThroughHook as any;
           } else {
-            hooks[hooksProp] = (...args: unknown[]) => {
+            hooks[hooksProp] = ((...args: unknown[]) => {
               let ret = hooksFunc.apply(hooks, args);
               if (ret === false) {
                 ret = prevHook.apply(hooks, args);
               }
               return ret as string;
-            };
+            // the hook property is a union of different method types, so the generic wrapper is cast to any
+            }) as any;
           }
         }
         opts.hooks = hooks;
@@ -292,6 +301,7 @@ export class Marked {
       if (opt.async) {
         return Promise.resolve(opt.hooks ? opt.hooks.preprocess(src) : src)
           .then(src => lexer(src, opt))
+          .then(tokens => opt.hooks ? opt.hooks.processAllTokens(tokens) : tokens)
           .then(tokens => opt.walkTokens ? Promise.all(this.walkTokens(tokens, opt.walkTokens)).then(() => tokens) : tokens)
           .then(tokens => parser(tokens, opt))
           .then(html => opt.hooks ? opt.hooks.postprocess(html) : html)
@@ -302,7 +312,10 @@ export class Marked {
         if (opt.hooks) {
           src = opt.hooks.preprocess(src) as string;
         }
-        const tokens = lexer(src, opt);
+        let tokens = lexer(src, opt);
+        if (opt.hooks) {
+          tokens = opt.hooks.processAllTokens(tokens);
+        }
         if (opt.walkTokens) {
           this.walkTokens(tokens, opt.walkTokens);
         }
