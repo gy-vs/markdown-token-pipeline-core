@@ -1,5 +1,6 @@
 import { _defaults } from './defaults.ts';
 import type { MarkedOptions } from './MarkedOptions.ts';
+import type { Token } from './Tokens.ts';
 
 export class _Hooks {
   options: MarkedOptions;
@@ -10,7 +11,8 @@ export class _Hooks {
 
   static passThroughHooks = new Set([
     'preprocess',
-    'postprocess'
+    'postprocess',
+    'processAllTokens'
   ]);
 
   /**
@@ -21,9 +23,22 @@ export class _Hooks {
   }
 
   /**
+   * Process all tokens after the lexer and before walkTokens
+   */
+  processAllTokens(tokens: Token[]) {
+    return tokens;
+  }
+
+  /**
    * Process HTML after marked is finished
    */
   postprocess(html: string) {
     return html;
   }
+}
+
+export interface MarkedHooks {
+  preprocess: (markdown: string) => string | Promise<string>;
+  processAllTokens: (tokens: Token[]) => Token[] | Promise<Token[]>;
+  postprocess: (html: string) => string | Promise<string>;
 }

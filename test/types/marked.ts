@@ -318,8 +318,19 @@ marked.use({
     preprocess(markdown) {
       return markdown;
     },
+    processAllTokens(tokens) {
+      return tokens;
+    },
     postprocess(html) {
       return html;
+    }
+  }
+});
+marked.use({
+  async: true,
+  hooks: {
+    async processAllTokens(tokens) {
+      return Promise.resolve(tokens);
     }
   }
 });

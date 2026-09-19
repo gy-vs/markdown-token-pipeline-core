@@ -204,17 +204,27 @@ export class Marked {
           const hooksFunc = pack.hooks[hooksProp] as UnknownFunction;
           const prevHook = hooks[hooksProp] as UnknownFunction;
           if (_Hooks.passThroughHooks.has(prop)) {
-            hooks[hooksProp] = (arg: string | undefined) => {
+            // @ts-expect-error cannot type dynamic hook function
+            hooks[hooksProp] = (arg: string | Token[] | undefined) => {
               if (this.defaults.async) {
                 return Promise.resolve(hooksFunc.call(hooks, arg)).then(ret => {
-                  return prevHook.call(hooks, ret) as string;
+                  if (prop === 'processAllTokens' && !Array.isArray(ret)) {
+                    throw new Error('hooks.processAllTokens did not return an array of tokens.');
+                  }
+
+                  return prevHook.call(hooks, ret) as string | Token[];
                 });
               }
 
               const ret = hooksFunc.call(hooks, arg);
-              return prevHook.call(hooks, ret) as string;
+              if (prop === 'processAllTokens' && !Array.isArray(ret)) {
+                throw new Error('hooks.processAllTokens did not return an array of tokens.');
+              }
+
+              return prevHook.call(hooks, ret) as string | Token[];
             };
           } else {
+            // @ts-expect-error cannot type dynamic hook function
             hooks[hooksProp] = (...args: unknown[]) => {
               let ret = hooksFunc.apply(hooks, args);
               if (ret === false) {
@@ -292,6 +302,7 @@ export class Marked {
       if (opt.async) {
         return Promise.resolve(opt.hooks ? opt.hooks.preprocess(src) : src)
           .then(src => lexer(src, opt))
+          .then(tokens => opt.hooks ? opt.hooks.processAllTokens(tokens) as Token[] : tokens)
           .then(tokens => opt.walkTokens ? Promise.all(this.walkTokens(tokens, opt.walkTokens)).then(() => tokens) : tokens)
           .then(tokens => parser(tokens, opt))
           .then(html => opt.hooks ? opt.hooks.postprocess(html) : html)
@@ -302,7 +313,10 @@ export class Marked {
         if (opt.hooks) {
           src = opt.hooks.preprocess(src) as string;
         }
-        const tokens = lexer(src, opt);
+        let tokens = lexer(src, opt);
+        if (opt.hooks) {
+          tokens = opt.hooks.processAllTokens(tokens) as Token[];
+        }
         if (opt.walkTokens) {
           this.walkTokens(tokens, opt.walkTokens);
         }

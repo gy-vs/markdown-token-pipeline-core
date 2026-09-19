@@ -46,9 +46,10 @@ Before building your custom extensions, it is important to understand the compon
 1) The user supplies Marked with an input string to be translated.
 2) The `lexer` feeds segments of the input text string into each `tokenizer`, and from their output, generates a series of tokens in a nested tree structure.
 3) Each `tokenizer` receives a segment of Markdown text and, if it matches a particular pattern, generates a token object containing any relevant information.
-4) The `walkTokens` function will traverse every token in the tree and perform any final adjustments to the token contents.
-4) The `parser` traverses the token tree and feeds each token into the appropriate `renderer`, and concatenates their outputs into the final HTML result.
-5) Each `renderer` receives a token and manipulates its contents to generate a segment of HTML.
+4) The [`processAllTokens`](#hooks) hook can make changes across the complete array of tokens before they are walked or parsed.
+5) The `walkTokens` function will traverse every token in the tree and perform any final adjustments to the token contents.
+6) The `parser` traverses the token tree and feeds each token into the appropriate `renderer`, and concatenates their outputs into the final HTML result.
+7) Each `renderer` receives a token and manipulates its contents to generate a segment of HTML.
 
 Marked provides methods for directly overriding the `renderer` and `tokenizer` for any existing token type, as well as inserting additional custom `renderer` and `tokenizer` functions to handle entirely custom syntax. For example, using `marked.use({renderer})` would modify a renderer, whereas `marked.use({extensions: [{renderer}]})` would add a new renderer. See the [custom extensions example](#custom-extensions-example) for insight on how to execute this.
 
@@ -262,9 +263,10 @@ Hooks are methods that hook into some part of marked. The following hooks are av
 | signature | description |
 |-----------|-------------|
 | `preprocess(markdown: string): string` | Process markdown before sending it to marked. |
+| `processAllTokens(tokens: Token[]): Token[]` | Process all tokens after lexing and before [`walkTokens`](#walk-tokens) and the parser. Must return the (possibly replaced) array of tokens. |
 | `postprocess(html: string): string` | Process html after marked has finished parsing. |
 
-`marked.use()` can be called multiple times with different `hooks` functions. Each function will be called in order, starting with the function that was assigned *last*.
+`marked.use()` can be called multiple times with different `hooks` functions. Each function will be called in order, starting with the function that was assigned *last*. For `preprocess`, `processAllTokens`, and `postprocess` the return value of each function is passed as the argument to the next one. If a `processAllTokens` function does not return an array of tokens, an error is thrown.
 
 **Example:** Set options based on [front-matter](https://www.npmjs.com/package/front-matter)
 
@@ -325,6 +327,29 @@ console.log(marked.parse(`
 
 ```html
 <img src="x">
+```
+
+**Example:** Remove all `hr` tokens with processAllTokens
+
+```js
+import { marked } from 'marked';
+
+// Override function
+function processAllTokens(tokens) {
+  return tokens.filter(token => token.type !== 'hr');
+}
+
+marked.use({ hooks: { processAllTokens } });
+
+// Run marked
+console.log(marked.parse('paragraph one\n\n---\n\nparagraph two'));
+```
+
+**Output:**
+
+```html
+<p>paragraph one</p>
+<p>paragraph two</p>
 ```
 
 ***
